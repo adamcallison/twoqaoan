@@ -1,6 +1,6 @@
 import numpy as np
-import util
-import perm_util
+import twoqaoan.util as util
+import twoqaoan.perm_util as perm_util
 
 def _route(hamiltonian_couplings, hardware_couplings, initial_permutation):
     n = len(initial_permutation)

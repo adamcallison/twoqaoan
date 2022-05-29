@@ -1,6 +1,6 @@
 import numpy as np
-import util
-import perm_util
+import twoqaoan.util as util
+import twoqaoan.perm_util as perm_util
 
 def random_permutation_for_annealing(annealing_inputs):
     n_vertices = annealing_inputs[0].shape[0]
