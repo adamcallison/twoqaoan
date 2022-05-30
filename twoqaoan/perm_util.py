@@ -19,23 +19,23 @@ def permute_state(state, perm):
     inv_perm = invert_permutation(perm)
     N = state.shape[0]
     n = int(np.round(np.log2(N)))
-    state_unmapped = np.zeros_like(state)
-    j_unmappeds = []
+    state_perm = np.zeros_like(state)
+    j_perms = []
     for j in range(N):
         jbin = bin(j)[2:]
         jbin = ('0'*(n-len(jbin)))+jbin
         jbin = jbin[::-1]
         jbin = np.array(list([int(x) for x in jbin]))
-        jbin_unmapped = np.ndarray(len(jbin), dtype=int)
+        jbin_perm = np.ndarray(len(jbin), dtype=int)
         for k in range(n):
-            jbin_unmapped[perm[k]] = jbin[k]
-        jbin_unmapped = (''.join(list([str(x) for x in jbin_unmapped])))
-        jbin_unmapped = jbin_unmapped[::-1]
-        j_unmapped = int(jbin_unmapped, 2)
-        j_unmappeds.append(j_unmapped)
-    j_unmappeds = np.array(j_unmappeds, dtype=int)
-    state_unmapped[j_unmappeds] = state[:]
-    return state_unmapped
+            jbin_perm[perm[k]] = jbin[k]
+        jbin_perm = (''.join(list([str(x) for x in jbin_perm])))
+        jbin_perm = jbin_perm[::-1]
+        j_perm = int(jbin_perm, 2)
+        j_perms.append(j_perm)
+    j_perms = np.array(j_perms, dtype=int)
+    state_perm[j_perms] = state[:]
+    return state_perm
 
 def invert_permutation(permutation):
     inverse_perm = np.zeros_like(permutation)
