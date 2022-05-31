@@ -57,9 +57,14 @@ def _route(hamiltonian_couplings, hardware_couplings, initial_permutation):
 
             candidate_permutations.append(candidate_permutation)
 
-        closest_gate_cand = [perm_util.permute_pair(closest_gate_phys, cand_perm) for cand_perm in candidate_permutations]
-        closer = [qubit_distances[x[0], x[1]] < shortest_dist for x in closest_gate_cand]
-        #print(f"Shortest distance {shortest_dist}, {np.sum(closer)} of {len(closer)} are closer")
+        closest_gate_cand = [\
+            perm_util.permute_pair(closest_gate_phys, cand_perm) for \
+            cand_perm in candidate_permutations\
+            ]
+        closer = [\
+            qubit_distances[x[0], x[1]] < shortest_dist for \
+            x in closest_gate_cand\
+            ]
 
         if np.any(closer):
             swaps_phys = [swap_phys for j, swap_phys in enumerate(swaps_phys) if closer[j]]
