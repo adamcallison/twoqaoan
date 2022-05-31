@@ -32,7 +32,7 @@ def mapping_sa(nqubits, hamiltonian_couplings, hardware_couplings, \
 
 def route_and_get_sequence(hamiltonian_couplings, hardware_couplings, \
     initial_permutation, runs, verbose=False):
-    swaps, perms, inv_perms, nn_gates_collection, routed_all = routing.route(\
+    swaps, perms, nn_gates_collection, routed_all = routing.route(\
         hamiltonian_couplings, hardware_couplings, initial_permutation, runs, \
         verbose=verbose)
     if verbose:
@@ -43,7 +43,7 @@ def route_and_get_sequence(hamiltonian_couplings, hardware_couplings, \
 
     sequence = routing.routed_implementation(swaps, perms, nn_gates_collection)
 
-    return swaps, perms, inv_perms, nn_gates_collection, sequence
+    return swaps, perms, nn_gates_collection, sequence
 
 def sequence_from_Jmat(Jmat, hardware_couplings, sa_iterations, sa_runs, \
     routing_runs, verbose=False):
@@ -57,10 +57,10 @@ def sequence_from_Jmat(Jmat, hardware_couplings, sa_iterations, sa_runs, \
     hamiltonian_couplings = util.standardize_pairs(hamiltonian_couplings)
     best_perm, best_cost, costs = mapping_sa(nqubits, hamiltonian_couplings, \
         hardware_couplings, sa_iterations, sa_runs, verbose=verbose)
-    swaps, perms, inv_perms, nn_gates_collection, sequence = \
-        route_and_get_sequence(hamiltonian_couplings, hardware_couplings, \
-        best_perm, routing_runs, verbose=verbose)
-    return swaps, perms, inv_perms, nn_gates_collection, sequence
+    swaps, perms, nn_gates_collection, sequence = route_and_get_sequence(\
+        hamiltonian_couplings, hardware_couplings, best_perm, routing_runs, \
+        verbose=verbose)
+    return swaps, perms, nn_gates_collection, sequence
 
 def _circuit_from_hamiltonian(J, h, c, qaoa_param):
     n = h.shape[0]
@@ -132,8 +132,8 @@ def circuit_from_hamiltonian(J, h, c, qaoa_param=None, \
     if not optimize:
         qc = _circuit_from_hamiltonian(J, h, c, qaoa_param)
     else:
-        swaps, perms, inv_perms, nn_gates_collection, sequence = \
-            sequence_from_Jmat(J, hardware_couplings, sa_iterations, sa_runs, \
-            routing_runs, verbose=verbose)
+        swaps, perms, nn_gates_collection, sequence = sequence_from_Jmat(J, \
+            hardware_couplings, sa_iterations, sa_runs, routing_runs, \
+            verbose=verbose)
         qc = _circuit_from_hamiltonian_optimized(sequence, J, h, c, qaoa_param)
     return qc

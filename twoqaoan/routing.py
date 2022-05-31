@@ -11,7 +11,7 @@ def _route(hamiltonian_couplings, hardware_couplings, initial_permutation):
 
     permutation = initial_permutation.copy()
     inv_permutation = perm_util.invert_permutation(permutation)
-    perms, inv_perms = [permutation], [inv_permutation]
+    perms = [permutation]
 
     unrouted_gates = list(hamiltonian_couplings)
     unrouted_gates_permuted = perm_util.permute_pairs(unrouted_gates, permutation)
@@ -89,7 +89,6 @@ def _route(hamiltonian_couplings, hardware_couplings, initial_permutation):
 
         inv_permutation = perm_util.invert_permutation(permutation)
         perms.append(permutation)
-        inv_perms.append(inv_permutation)
 
         unrouted_gates_permuted = perm_util.permute_pairs(unrouted_gates, \
             permutation)
@@ -112,7 +111,7 @@ def _route(hamiltonian_couplings, hardware_couplings, initial_permutation):
             for nn_gates in nn_gates_collection\
             ]
 
-    return swaps, perms, inv_perms, nn_gates_collection, routed_all
+    return swaps, perms, nn_gates_collection, routed_all
 
 def route(hamiltonian_couplings, hardware_couplings, initial_permutation, \
     runs, verbose=False):
@@ -120,18 +119,17 @@ def route(hamiltonian_couplings, hardware_couplings, initial_permutation, \
         if verbose:
             pc = 100*(run+1)/runs
             print(f"{pc:.2f}% done", end="\r")
-        swaps_cand, perms_cand, inv_perms_cand, nn_gates_collection_cand, \
-            routed_all_cand = _route(hamiltonian_couplings, \
-            hardware_couplings, initial_permutation)
+        swaps_cand, perms_cand, nn_gates_collection_cand, routed_all_cand = \
+            _route(hamiltonian_couplings, hardware_couplings, \
+            initial_permutation)
         n_swaps_cand = len(swaps_cand)
         if (run == 0) or (n_swaps_cand < n_swaps):
             n_swaps = n_swaps_cand
             swaps = swaps_cand
             perms = perms_cand
-            inv_perms = inv_perms_cand
             nn_gates_collection = nn_gates_collection_cand
             routed_all = routed_all_cand
-    return swaps, perms, inv_perms, nn_gates_collection, routed_all
+    return swaps, perms, nn_gates_collection, routed_all
 
 def routed_implementation(swaps, perms, nn_gates_collection):
     n = perms[0].shape[0]
