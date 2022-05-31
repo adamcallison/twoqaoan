@@ -8,7 +8,8 @@ def test_circuit_from_hamiltonian():
     diff = _test_circuit_from_hamiltonian()
     assert diff < 1e-10
 
-def _test_circuit_from_hamiltonian(fakehardware='london', verbose=False):
+def _test_circuit_from_hamiltonian(fakehardware='london', routing_runs=100, \
+    verbose=False):
     #     logic separated from the main test function so it can be easily run
     # without pytest
     fakehardware = fakehardware.lower()
@@ -44,7 +45,7 @@ def _test_circuit_from_hamiltonian(fakehardware='london', verbose=False):
     qc_opt, initial_permutation, final_permutation = \
         twoqaoan.circuit_from_hamiltonian(J, h, c, qaoa_param=1.0, \
         hardware_couplings=hardware_couplings, sa_iterations=100, \
-        sa_runs=100, routing_runs=100, optimize=True, verbose=verbose)
+        sa_runs=100, routing_runs=routing_runs, optimize=True, verbose=verbose)
 
     for j in range(n):
         qc.rx(1.0, j)

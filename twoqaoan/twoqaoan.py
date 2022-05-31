@@ -37,9 +37,9 @@ def route_and_get_sequence(hamiltonian_couplings, hardware_couplings, \
         verbose=verbose)
     if verbose:
         if routed_all:
-            print("All routed!   ")
+            print(f"{len(swaps)} swaps and all routed!   ")
         else:
-            print("Some not routed    ")
+            print(f"{len(swaps)} swaps and some not routed    ")
 
     sequence = routing.routed_implementation(swaps, perms, nn_gates_collection)
 

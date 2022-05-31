@@ -1,4 +1,5 @@
 import numpy as np
+from functools import lru_cache
 
 def permute_array(a, perm):
     new_a = np.zeros_like(a)
@@ -7,6 +8,10 @@ def permute_array(a, perm):
         for k in range(n):
             new_a[j, k] = a[perm[j], perm[k]]
     return new_a
+
+def permute_pair(pair, perm):
+    inv_perm = invert_permutation(perm)
+    return (inv_perm[pair[0]], inv_perm[pair[1]])
 
 def permute_pairs(pairs, perm):
     inv_perm = invert_permutation(perm)
@@ -36,7 +41,7 @@ def permute_state(state, perm):
     j_perms = np.array(j_perms, dtype=int)
     state_perm[j_perms] = state[:]
     return state_perm
-
+    
 def invert_permutation(permutation):
     inverse_perm = np.zeros_like(permutation)
     for i, j in enumerate(permutation):

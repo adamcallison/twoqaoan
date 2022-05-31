@@ -45,7 +45,7 @@ def _route(hamiltonian_couplings, hardware_couplings, initial_permutation):
             hc for hc in hardware_couplings if ((q1 in hc) or (q2 in hc))\
             ]
         swaps_phys = util.standardize_pairs(swaps_phys, symmetrize=False)
-        
+
         candidate_permutations = []
         for swap_phys in swaps_phys:
             candidate_permutation = permutation.copy()
@@ -56,6 +56,18 @@ def _route(hamiltonian_couplings, hardware_couplings, initial_permutation):
                 candidate_permutation[swap_phys[0]]
 
             candidate_permutations.append(candidate_permutation)
+
+        closest_gate_cand = [perm_util.permute_pair(closest_gate_phys, cand_perm) for cand_perm in candidate_permutations]
+        closer = [qubit_distances[x[0], x[1]] < shortest_dist for x in closest_gate_cand]
+        #print(f"Shortest distance {shortest_dist}, {np.sum(closer)} of {len(closer)} are closer")
+
+        if np.any(closer):
+            swaps_phys = [swap_phys for j, swap_phys in enumerate(swaps_phys) if closer[j]]
+            candidate_permutations = [cand_perm for j, cand_perm in enumerate(candidate_permutations) if closer[j]]
+
+        # can probably check here if there is only 1 candidate, and avoid
+        # further work if so
+
         adj = util.adjacency_matrix(n, unrouted_gates)
 
         candidate_adjs = [\
@@ -85,6 +97,7 @@ def _route(hamiltonian_couplings, hardware_couplings, initial_permutation):
         else:
             best_candidate_permutation_idx = np.random.default_rng().choice(\
                 best_candidate_permutations_idx)
+
         permutation = candidate_permutations[best_candidate_permutation_idx]
         swap_phys = swaps_phys[best_candidate_permutation_idx]
         swaps.append(swap_phys)
