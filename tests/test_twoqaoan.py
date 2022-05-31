@@ -1,11 +1,23 @@
 import numpy as np
 import twoqaoan.twoqaoan as twoqaoan
 import twoqaoan.perm_util as perm_util
-from qiskit.test.mock import FakeLondon
+from qiskit.test.mock import FakeLondon, FakeTokyo
 from qiskit.quantum_info import Statevector
 
 def test_circuit_from_hamiltonian():
-    n = 5
+    diff = _test_circuit_from_hamiltonian()
+    assert diff < 1e-10
+
+def _test_circuit_from_hamiltonian(fakehardware='london', verbose=False):
+    fakehardware = fakehardware.lower()
+    if fakehardware == 'london':
+        ft = FakeLondon()
+        n = 5
+
+    if fakehardware == 'tokyo':
+        ft = FakeTokyo()
+        n = 20
+
     J = np.random.default_rng().normal(loc=0.0, scale=1.0, size=(n, n))
     h = J.diagonal().copy()
     np.fill_diagonal(J, 0.0)
@@ -19,7 +31,6 @@ def test_circuit_from_hamiltonian():
     qc = twoqaoan.circuit_from_hamiltonian(J, h, c, qaoa_param=1.0, \
         optimize=False)
 
-    ft = FakeLondon()
     hardware_couplings = []
     for gate in ft.properties().gates:
         qubits = gate.qubits
@@ -31,7 +42,7 @@ def test_circuit_from_hamiltonian():
     qc_opt, initial_permutation, final_permutation = \
         twoqaoan.circuit_from_hamiltonian(J, h, c, qaoa_param=1.0, \
         hardware_couplings=hardware_couplings, sa_iterations=100, \
-        sa_runs=100, routing_runs=100, optimize=True)
+        sa_runs=100, routing_runs=100, optimize=True, verbose=verbose)
 
     for j in range(n):
         qc.rx(1.0, j)
@@ -63,4 +74,4 @@ def test_circuit_from_hamiltonian():
     test_fprobs_opt_s = np.sort(test_fprobs_opt)
 
     diff = np.abs((test_fstate - test_fstate_opt)).sum()
-    assert diff < 1e-10
+    return diff
