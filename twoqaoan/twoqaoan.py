@@ -43,6 +43,28 @@ def route_and_get_sequence(hamiltonian_couplings, hardware_couplings, \
 
     sequence = routing.routed_implementation(swaps, perms, nn_gates_collection)
 
+    qubit_distances = util.floyd_warshall(len(initial_permutation), \
+        hardware_couplings)
+
+    if verbose:
+        distances = []
+        for el in sequence:
+            if el[0] == 'swap':
+                q1, q2 = el[1]
+            elif el[0] == 'hamiltonian_gate':
+                q1, q2 = el[2]
+            elif el[0] in ('map', 'unmap'):
+                q1 = None
+            else:
+                raise ValueError(f"{el[0]}")
+            if q1 is None:
+                continue
+            else:
+                distances.append(qubit_distances[q1, q2])
+        distances = np.array(distances)
+        pc = 100*(np.sum(distances==1)/len(distances))
+        print(f"{pc:.2f}% of swaps and hamiltonian gates are nearest neighbour")
+
     return swaps, perms, nn_gates_collection, sequence
 
 def sequence_from_Jmat(Jmat, hardware_couplings, sa_iterations, sa_runs, \
