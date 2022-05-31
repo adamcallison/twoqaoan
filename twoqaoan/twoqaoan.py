@@ -88,9 +88,6 @@ def _circuit_from_hamiltonian_optimized(J_sequence, J, h, c, qaoa_param):
     initial_permutation, inv_initial_permutation = None, None
     if J_sequence[0][0] == 'map':
         initial_permutation = np.array(J_sequence[0][1], dtype=int)
-        inv_initial_permutation = perm_util.invert_permutation(\
-            initial_permutation)
-        h = h.copy()
         J_sequence = J_sequence[1:]
 
     for q1 in range(n):
@@ -98,7 +95,7 @@ def _circuit_from_hamiltonian_optimized(J_sequence, J, h, c, qaoa_param):
         if initial_permutation is None:
             physical_qubit = q1
         else:
-            physical_qubit = inv_initial_permutation[q1]
+            physical_qubit = initial_permutation[q1]
         hval = h[physical_qubit]
         if not (hval == 0.0):
             qc.rz(2*qaoa_param*hval, q1)

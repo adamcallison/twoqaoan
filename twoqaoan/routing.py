@@ -6,7 +6,8 @@ def _route(hamiltonian_couplings, hardware_couplings, initial_permutation):
     n = len(initial_permutation)
     hamiltonian_couplings = util.standardize_pairs(hamiltonian_couplings)
     hardware_couplings = util.standardize_pairs(hardware_couplings)
-    qubit_distances = util.floyd_warshall(n, hardware_couplings, standardize=False, symmetrize=True)
+    qubit_distances = util.floyd_warshall(n, hardware_couplings, \
+        standardize=False, symmetrize=True)
 
     permutation = initial_permutation.copy()
     inv_permutation = perm_util.invert_permutation(permutation)
@@ -14,44 +15,74 @@ def _route(hamiltonian_couplings, hardware_couplings, initial_permutation):
 
     unrouted_gates = list(hamiltonian_couplings)
     unrouted_gates_permuted = perm_util.permute_pairs(unrouted_gates, permutation)
-    nn_gates_permuted, unrouted_gates_permuted = util.nearest_neighbours(unrouted_gates_permuted, qubit_distances)
-    nn_gates, unrouted_gates = perm_util.permute_pairs(nn_gates_permuted, inv_permutation), perm_util.permute_pairs(unrouted_gates_permuted, inv_permutation)
+    nn_gates_permuted, unrouted_gates_permuted = util.nearest_neighbours(\
+        unrouted_gates_permuted, qubit_distances)
+    nn_gates, unrouted_gates = \
+        perm_util.permute_pairs(nn_gates_permuted, inv_permutation), \
+        perm_util.permute_pairs(unrouted_gates_permuted, inv_permutation)
 
     nn_gates_collection = [nn_gates]
     swaps = []
     routed_all = True
     while len(unrouted_gates) > 0:
-        unrouted_dists = [qubit_distances[ug[0], ug[1]] for ug in unrouted_gates_permuted]
+        unrouted_dists = \
+            [qubit_distances[ug[0], ug[1]] for ug in unrouted_gates_permuted]
         shortest_dist = min(unrouted_dists)
-        closest_gates_permuted = [ug for i, ug in enumerate(unrouted_gates_permuted) if unrouted_dists[i] == shortest_dist]
+
+        closest_gates_permuted = [\
+            ug for i, ug in enumerate(unrouted_gates_permuted) \
+            if unrouted_dists[i] == shortest_dist\
+            ]
+
         if len(closest_gates_permuted) == 1:
             closest_gate_permuted = closest_gates_permuted[0]
         else:
-            closest_gate_permuted = np.random.default_rng().choice(closest_gates_permuted)
+            closest_gate_permuted = np.random.default_rng().choice(\
+                closest_gates_permuted)
         q1, q2 = closest_gate_permuted
-        swaps_permuted = [hc for hc in hardware_couplings if ((q1 in hc) or (q2 in hc))]
+
+        swaps_permuted = [\
+            hc for hc in hardware_couplings if ((q1 in hc) or (q2 in hc))\
+            ]
+
         swaps_permuted = util.standardize_pairs(swaps_permuted, symmetrize=False)
         candidate_permutations = []
         for swap in swaps_permuted:
             candidate_permutation = permutation.copy()
 
-            inv_candidate_permutation = perm_util.invert_permutation(candidate_permutation)
-            inv_candidate_permutation[swap[0]], inv_candidate_permutation[swap[1]] = inv_candidate_permutation[swap[1]], inv_candidate_permutation[swap[0]]
-            candidate_permutation = perm_util.invert_permutation(inv_candidate_permutation)
+            candidate_permutation[swap[0]], candidate_permutation[swap[1]] = \
+                candidate_permutation[swap[1]], candidate_permutation[swap[0]]
 
             candidate_permutations.append(candidate_permutation)
         adj = util.adjacency_matrix(n, unrouted_gates)
-        candidate_adjs = [perm_util.permute_array(adj, cand_perm) for cand_perm in candidate_permutations]
-        candidate_costs = [util.qap_cost(cand_adj, qubit_distances) for cand_adj in candidate_adjs]
+
+        candidate_adjs = [\
+            perm_util.permute_array(adj, cand_perm) \
+            for cand_perm in candidate_permutations\
+            ]
+
+        candidate_costs = [\
+            util.qap_cost(cand_adj, qubit_distances) \
+            for cand_adj in candidate_adjs\
+            ]
+
         min_cost = min(candidate_costs)
-        best_candidate_permutations_idx = [i for i, cand_perm in enumerate(candidate_permutations) if candidate_costs[i] == min_cost]
-        best_candidate_permutations = [candidate_permutations[idx] for idx in best_candidate_permutations_idx]
+
+        best_candidate_permutations_idx = [\
+            i for i, cand_perm in enumerate(candidate_permutations) \
+            if candidate_costs[i] == min_cost\
+            ]
+
+        best_candidate_permutations = [\
+        candidate_permutations[idx] for idx in best_candidate_permutations_idx\
+        ]
         # haven't implemented other 2 criteria
 
         if len(best_candidate_permutations_idx) == 1:
             best_candidate_permutation_idx = best_candidate_permutations_idx[0]
         else:
-            best_candidate_permutation_idx = np.random.default_rng().choice(best_candidate_permutations_idx)
+            best_candidate_permutation_idx = np.random.default_rng().choice(\
+                best_candidate_permutations_idx)
         permutation = candidate_permutations[best_candidate_permutation_idx]
         swap = swaps_permuted[best_candidate_permutation_idx]
         swaps.append(swap)
@@ -60,9 +91,14 @@ def _route(hamiltonian_couplings, hardware_couplings, initial_permutation):
         perms.append(permutation)
         inv_perms.append(inv_permutation)
 
-        unrouted_gates_permuted = perm_util.permute_pairs(unrouted_gates, permutation)
-        nn_gates_permuted, unrouted_gates_permuted = util.nearest_neighbours(unrouted_gates_permuted, qubit_distances)
-        nn_gates, unrouted_gates = perm_util.permute_pairs(nn_gates_permuted, inv_permutation), perm_util.permute_pairs(unrouted_gates_permuted, inv_permutation)
+        unrouted_gates_permuted = perm_util.permute_pairs(unrouted_gates, \
+            permutation)
+        nn_gates_permuted, unrouted_gates_permuted = util.nearest_neighbours(\
+            unrouted_gates_permuted, qubit_distances)
+
+        nn_gates, unrouted_gates = \
+            perm_util.permute_pairs(nn_gates_permuted, inv_permutation), \
+            perm_util.permute_pairs(unrouted_gates_permuted, inv_permutation)
 
         nn_gates_collection.append(nn_gates)
 
@@ -71,7 +107,10 @@ def _route(hamiltonian_couplings, hardware_couplings, initial_permutation):
             unrouted_gates = []
             routed_all = False
 
-        nn_gates_collection = [util.standardize_pairs(nn_gates, symmetrize=False) for nn_gates in nn_gates_collection]
+        nn_gates_collection = [\
+            util.standardize_pairs(nn_gates, symmetrize=False) \
+            for nn_gates in nn_gates_collection\
+            ]
 
     return swaps, perms, inv_perms, nn_gates_collection, routed_all
 

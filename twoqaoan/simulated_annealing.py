@@ -17,7 +17,10 @@ def simulated_annealing_run(extra_inputs, iterations,
         if verbose:
             pc = 100*(iteration+1)/iterations
             print(f"{pc:.2f}% complete.", end="\r")
-        acceptance_parameter = acceptance_parameter_generator(extra_inputs, iterations, iteration)
+
+        acceptance_parameter = acceptance_parameter_generator(extra_inputs, \
+            iterations, iteration)
+            
         candidate_state = candidate_generator(extra_inputs, state)
         candidate_cost = cost_function(extra_inputs, candidate_state)
         accept = acceptance_rule(cost, candidate_cost, acceptance_parameter)

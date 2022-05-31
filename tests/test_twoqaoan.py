@@ -9,6 +9,8 @@ def test_circuit_from_hamiltonian():
     assert diff < 1e-10
 
 def _test_circuit_from_hamiltonian(fakehardware='london', verbose=False):
+    #     logic separated from the main test function so it can be easily run
+    # without pytest
     fakehardware = fakehardware.lower()
     if fakehardware == 'london':
         ft = FakeLondon()
