@@ -66,3 +66,25 @@ def nearest_neighbours(hamiltonian_couplings, qubit_distances):
         else:
             non_nn_pairs.append(pair)
     return nn_pairs, non_nn_pairs
+
+def _first_available_color(color_list):
+    """Return smallest non-negative integer not in the given list of colors."""
+    color_set = set(color_list)
+    count = 0
+    while True:
+        if count not in color_set:
+            return count
+        count += 1
+
+def greedy_graph_color(n_vertices, edges):
+    adj_mat = adjacency_matrix(n_vertices, edges, standardize=True)
+    color = dict()
+    for j in range(n_vertices):
+        neighbours = np.arange(n_vertices)[adj_mat[j]==1]
+
+        used_neighbour_colors = [\
+            color[nbr] for nbr in neighbours if nbr in color\
+            ]
+
+        color[node] = _first_available_color(used_neighbour_colors)
+    return color

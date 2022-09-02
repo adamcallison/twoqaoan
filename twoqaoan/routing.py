@@ -97,6 +97,8 @@ def _route(hamiltonian_couplings, hardware_couplings, initial_permutation):
         ]
         # haven't implemented other 2 criteria
 
+        
+
         if len(best_candidate_permutations_idx) == 1:
             best_candidate_permutation_idx = best_candidate_permutations_idx[0]
         else:
