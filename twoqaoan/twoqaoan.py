@@ -1,90 +1,7 @@
 from qiskit import QuantumCircuit, QuantumRegister
 import numpy as np
 
-import twoqaoan.util as util
-import twoqaoan.simulated_annealing as simulated_annealing
-import twoqaoan.sa_util as sa_util
-import twoqaoan.perm_util as perm_util
-import twoqaoan.routing as routing
-
-def mapping_sa(nqubits, hamiltonian_couplings, hardware_couplings, \
-    sa_iterations, sa_runs, verbose=False):
-    qubit_distances = util.floyd_warshall(nqubits, hardware_couplings, \
-        standardize=True, symmetrize=True)
-    ham_adj = util.adjacency_matrix(nqubits, hamiltonian_couplings, \
-        standardize=True, symmetrize=True)
-    extra_inputs = (ham_adj, qubit_distances)
-    best_perm, best_cost, costs = simulated_annealing.simulated_annealing(\
-        extra_inputs, sa_iterations, sa_runs, \
-        sa_util.random_permutation_for_annealing, \
-        sa_util.qap_cost_for_annealing, \
-        sa_util.permutation_neighbour_for_annealing, \
-        sa_util.boltzmann_acceptance_rule, \
-        sa_util.temperature_schedule, \
-        verbose=verbose)
-
-    if verbose:
-        print(f"Pre-map cost: {util.qap_cost(ham_adj, qubit_distances)}")
-        ham_adj_perm = perm_util.permute_array(ham_adj, best_perm)
-        print(f"Post-map cost: {util.qap_cost(ham_adj_perm, qubit_distances)}")
-
-    return best_perm, best_cost, costs
-
-def route_and_get_sequence(hamiltonian_couplings, hardware_couplings, \
-    initial_permutation, runs, verbose=False):
-    swaps, perms, nn_gates_collection, routed_all = routing.route(\
-        hamiltonian_couplings, hardware_couplings, initial_permutation, runs, \
-        verbose=verbose)
-    if verbose:
-        if routed_all:
-            print(f"{len(swaps)} swaps and all routed!   ")
-        else:
-            print(f"{len(swaps)} swaps and some not routed    ")
-
-    sequence = routing.routed_implementation(swaps, perms, nn_gates_collection)
-
-    qubit_distances = util.floyd_warshall(len(initial_permutation), \
-        hardware_couplings)
-
-    if verbose:
-        distances = []
-        for el in sequence:
-            if el[0] == 'swap':
-                q1, q2 = el[1]
-            elif el[0] == 'hamiltonian_gate':
-                q1, q2 = el[2]
-            elif el[0] in ('map', 'unmap'):
-                q1 = None
-            else:
-                raise ValueError(f"{el[0]}")
-            if q1 is None:
-                continue
-            else:
-                distances.append(qubit_distances[q1, q2])
-        distances = np.array(distances)
-        pc = 100*(np.sum(distances==1)/len(distances))
-        print(f"{pc:.2f}% of swaps and hamiltonian gates are nearest neighbour")
-
-    return swaps, perms, nn_gates_collection, sequence
-
-def sequence_from_Jmat(Jmat, hardware_couplings, sa_iterations, sa_runs, \
-    routing_runs, verbose=False):
-    nqubits = Jmat.shape[0]
-    hamiltonian_couplings = []
-    for j in range(0, nqubits-1):
-        for k in range(j+1, nqubits):
-            Jcoeff = Jmat[j, k] + Jmat[k, j]
-            if np.abs(Jcoeff) > 0:
-                hamiltonian_couplings.append((j, k))
-    hamiltonian_couplings = util.standardize_pairs(hamiltonian_couplings)
-    best_perm, best_cost, costs = mapping_sa(nqubits, hamiltonian_couplings, \
-        hardware_couplings, sa_iterations, sa_runs, verbose=verbose)
-    swaps, perms, nn_gates_collection, sequence = route_and_get_sequence(\
-        hamiltonian_couplings, hardware_couplings, best_perm, routing_runs, \
-        verbose=verbose)
-    return swaps, perms, nn_gates_collection, sequence
-
-def _circuit_from_hamiltonian(J, h, c, qaoa_param):
+def circuit_from_hamiltonian(J, h, c, qaoa_param):
     n = h.shape[0]
     qc_qubits = QuantumRegister(n, 'q')
     qc = QuantumCircuit(qc_qubits)
@@ -101,32 +18,35 @@ def _circuit_from_hamiltonian(J, h, c, qaoa_param):
     if not (c == 0.0):
         qc.global_phase = qc.global_phase - (qaoa_param*c)
     return qc
-
-def _circuit_from_hamiltonian_optimized(J_sequence, J, h, c, qaoa_param):
+    
+def circuit_from_hamiltonian_optimized(J_sequence, J, h, c, qaoa_param):
     n = h.shape[0]
     qc_qubits = QuantumRegister(n, 'q')
     qc = QuantumCircuit(qc_qubits)
 
-    initial_permutation, inv_initial_permutation = None, None
-    if J_sequence[0][0] == 'map':
-        initial_permutation = np.array(J_sequence[0][1], dtype=int)
+    logical_to_physical = None
+    if J_sequence[0][0] == 'logical to physical':
+        logical_to_physical = np.array(J_sequence[0][1], dtype=int)
         J_sequence = J_sequence[1:]
 
     for q1 in range(n):
         logical_qubit = q1
-        if initial_permutation is None:
+        if logical_to_physical is None:
             physical_qubit = q1
         else:
-            physical_qubit = initial_permutation[q1]
+            physical_qubit = logical_to_physical[q1]
         hval = h[physical_qubit]
         if not (hval == 0.0):
             qc.rz(2*qaoa_param*hval, q1)
 
-    final_permutation = None
+    physical_to_logical = None
     for i, instruction in enumerate(J_sequence):
-        if instruction[0] == 'swap':
-            qc.swap(instruction[1][0], instruction[1][1])
-        elif instruction[0] == 'hamiltonian_gate':
+        # putting swapints as just two gates next to each other to allow parameterized gates
+        if instruction[0] in ('swap', 'swapint'):
+            physical_pair = instruction[2]
+            logical_pair = instruction[1]
+            qc.swap(physical_pair[0], physical_pair[1])
+        if instruction[0] in ('interaction', 'swapint'):
             physical_pair = instruction[2]
             logical_pair = instruction[1]
             Jcoeff = J[logical_pair[0], logical_pair[1]] + J[logical_pair[1], \
@@ -134,28 +54,14 @@ def _circuit_from_hamiltonian_optimized(J_sequence, J, h, c, qaoa_param):
             if Jcoeff == 0:
                 continue
             qc.rzz(2*qaoa_param*Jcoeff, physical_pair[0], physical_pair[1])
-        elif instruction[0] == 'map':
-            raise ValueError("map can only be done as first step")
-        elif instruction[0] == 'unmap':
+        if instruction[0] == 'logical to physical':
+            raise ValueError("'logical to physical' can only be done as first step")
+        if instruction[0] == 'physical to logical':
             if not (i == (len(J_sequence)) - 1):
-                raise ValueError("unmap can only be done as last step")
+                raise ValueError("'physical to logical' can only be done as last step")
             else:
-                final_permutation = np.array(instruction[1])
+                physical_to_logical = np.array(instruction[1])
 
     if not (c == 0.0):
         qc.global_phase = qc.global_phase - (qaoa_param*c)
-    return qc, initial_permutation, final_permutation
-
-def circuit_from_hamiltonian(J, h, c, qaoa_param=None, \
-    hardware_couplings=None, sa_iterations=None, sa_runs=None, \
-    routing_runs=None, optimize=True, verbose=False):
-    if qaoa_param is None:
-        qaoa_param = 1.0
-    if not optimize:
-        qc = _circuit_from_hamiltonian(J, h, c, qaoa_param)
-    else:
-        swaps, perms, nn_gates_collection, sequence = sequence_from_Jmat(J, \
-            hardware_couplings, sa_iterations, sa_runs, routing_runs, \
-            verbose=verbose)
-        qc = _circuit_from_hamiltonian_optimized(sequence, J, h, c, qaoa_param)
-    return qc
+    return qc, logical_to_physical, physical_to_logical

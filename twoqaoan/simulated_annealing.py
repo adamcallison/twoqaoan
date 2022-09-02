@@ -8,9 +8,10 @@ def simulated_annealing_run(extra_inputs, iterations,
                            acceptance_parameter_generator,
                            verbose=False):
 
-    best_cost = float('inf')
     state = initial_state_generator(extra_inputs)
     cost = cost_function(extra_inputs, state)
+    #best_state, best_cost = state, cost
+    best_cost = float('inf')
     costs = np.zeros(iterations+1, dtype=float)
     costs[0] = cost
     for iteration in range(iterations):

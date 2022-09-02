@@ -42,30 +42,14 @@ def floyd_warshall(n_vertices, edges, standardize=True, symmetrize=True):
                     distances[i, j] = distances[i, k] + distances[k, j]
     return distances
 
-def adjacency_matrix(n_vertices, edges, standardize=True, symmetrize=True):
-
+def qap_cost(hamiltonian_interactions, qubit_map, standardize=False):
     if standardize:
-        edges = standardize_pairs(edges)
-    if symmetrize:
-        edges = symmetrize_pairs(edges)
-
-    edges = symmetrize_pairs(edges, standardize=True)
-    adj = np.zeros((n_vertices, n_vertices), dtype=float)
-    for edge in edges:
-        adj[edge[0], edge[1]] = 1.0
-    return adj
-
-def qap_cost(hamiltonian_adjacency, qubit_distances):
-    return np.sum(hamiltonian_adjacency*qubit_distances)
-
-def nearest_neighbours(hamiltonian_couplings, qubit_distances):
-    nn_pairs, non_nn_pairs = [], []
-    for pair in hamiltonian_couplings:
-        if qubit_distances[pair[0], pair[1]] == 1.0:
-            nn_pairs.append(pair)
-        else:
-            non_nn_pairs.append(pair)
-    return nn_pairs, non_nn_pairs
+        hamiltonian_interactions = standardize_pairs(hamiltonian_interactions)
+    logical_distances = qubit_map.logical_distances
+    cost = 0.0
+    for q1, q2 in hamiltonian_interactions:
+        cost += logical_distances[q1, q2]
+    return cost
 
 def _first_available_color(color_list):
     """Return smallest non-negative integer not in the given list of colors."""
@@ -76,15 +60,29 @@ def _first_available_color(color_list):
             return count
         count += 1
 
-def greedy_graph_color(n_vertices, edges):
-    adj_mat = adjacency_matrix(n_vertices, edges, standardize=True)
+def greedy_graph_color(adjacency):
     color = dict()
-    for j in range(n_vertices):
-        neighbours = np.arange(n_vertices)[adj_mat[j]==1]
+    n = adjacency.shape[0]
+    for j in range(n):
+        neighbours = np.arange(n)[adjacency[j]==1]
 
         used_neighbour_colors = [\
             color[nbr] for nbr in neighbours if nbr in color\
             ]
 
-        color[node] = _first_available_color(used_neighbour_colors)
+        color[j] = _first_available_color(used_neighbour_colors)
     return color
+
+def permute_array(a, perm):
+    new_a = np.zeros_like(a)
+    n = len(perm)
+    for j in range(n):
+        for k in range(n):
+            new_a[j, k] = a[perm[j], perm[k]]
+    return new_a
+
+def invert_permutation(perm):
+    perm = np.array(perm)
+    tmp = np.empty_like(perm)
+    tmp[perm] = np.arange(perm.shape[0])
+    return tmp

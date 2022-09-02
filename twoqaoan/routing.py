@@ -1,182 +1,149 @@
 import numpy as np
-import twoqaoan.util as util
-import twoqaoan.perm_util as perm_util
 
-def _route(hamiltonian_couplings, hardware_couplings, initial_permutation):
-    n = len(initial_permutation)
-    hamiltonian_couplings = util.standardize_pairs(hamiltonian_couplings)
-    hardware_couplings = util.standardize_pairs(hardware_couplings)
-    qubit_distances = util.floyd_warshall(n, hardware_couplings, \
-        standardize=False, symmetrize=True)
+from twoqaoan.util import standardize_pairs, qap_cost
 
-    permutation = initial_permutation.copy()
-    inv_permutation = perm_util.invert_permutation(permutation)
-    perms = [permutation]
-
-    unrouted_gates = list(hamiltonian_couplings)
-    unrouted_gates_phys = perm_util.permute_pairs(unrouted_gates, permutation)
-    nn_gates_phys, unrouted_gates_phys = util.nearest_neighbours(\
-        unrouted_gates_phys, qubit_distances)
-    nn_gates, unrouted_gates = \
-        perm_util.permute_pairs(nn_gates_phys, inv_permutation), \
-        perm_util.permute_pairs(unrouted_gates_phys, inv_permutation)
-
-    nn_gates_collection = [nn_gates]
+def _route(hamiltonian_interactions, initial_map):
+    #physical_coupled = initial_map.physical_coupled
+    nn_gates_collection = []
     swaps = []
-    routed_all = True
+    unrouted_gates = list(hamiltonian_interactions)
+    
+    unrouted_gates_new, nn_gates = [], []
+    logical_coupled = initial_map.logical_coupled
+    for ur_gate in unrouted_gates:
+        if ur_gate in logical_coupled:
+            nn_gates.append(ur_gate)
+        else:
+            unrouted_gates_new.append(ur_gate)
+    unrouted_gates = unrouted_gates_new
+    nn_gates_collection.append(nn_gates)
+    qubit_maps = [initial_map.copy()]
+
+    routed_all = None
     while len(unrouted_gates) > 0:
-        unrouted_dists = \
-            [qubit_distances[ug[0], ug[1]] for ug in unrouted_gates_phys]
-        shortest_dist = min(unrouted_dists)
-
-        closest_gates_phys = [\
-            ug for i, ug in enumerate(unrouted_gates_phys) \
-            if unrouted_dists[i] == shortest_dist\
-            ]
-
-        if len(closest_gates_phys) == 1:
-            closest_gate_phys = closest_gates_phys[0]
-        else:
-            closest_gate_phys = np.random.default_rng().choice(\
-                closest_gates_phys)
-        q1, q2 = closest_gate_phys
-
-        swaps_phys = [\
-            hc for hc in hardware_couplings if ((q1 in hc) or (q2 in hc))\
-            ]
-        swaps_phys = util.standardize_pairs(swaps_phys, symmetrize=False)
-
-        candidate_permutations = []
-        for swap_phys in swaps_phys:
-            candidate_permutation = permutation.copy()
-
-            candidate_permutation[swap_phys[0]], \
-                candidate_permutation[swap_phys[1]] = \
-                candidate_permutation[swap_phys[1]], \
-                candidate_permutation[swap_phys[0]]
-
-            candidate_permutations.append(candidate_permutation)
-
-        closest_gate_cand = [\
-            perm_util.permute_pair(closest_gate_phys, cand_perm) for \
-            cand_perm in candidate_permutations\
-            ]
-        closer = [\
-            qubit_distances[x[0], x[1]] < shortest_dist for \
-            x in closest_gate_cand\
-            ]
-
-        if np.any(closer):
-            swaps_phys = [swap_phys for j, swap_phys in enumerate(swaps_phys) if closer[j]]
-            candidate_permutations = [cand_perm for j, cand_perm in enumerate(candidate_permutations) if closer[j]]
-
-        # can probably check here if there is only 1 candidate, and avoid
-        # further work if so
-
-        adj = util.adjacency_matrix(n, unrouted_gates)
-
-        candidate_adjs = [\
-            perm_util.permute_array(adj, cand_perm) \
-            for cand_perm in candidate_permutations\
-            ]
-
-        candidate_costs = [\
-            util.qap_cost(cand_adj, qubit_distances) \
-            for cand_adj in candidate_adjs\
-            ]
-
-        min_cost = min(candidate_costs)
-
-        best_candidate_permutations_idx = [\
-            i for i, cand_perm in enumerate(candidate_permutations) \
-            if candidate_costs[i] == min_cost\
-            ]
-
-        best_candidate_permutations = [\
-        candidate_permutations[idx] for idx in best_candidate_permutations_idx\
-        ]
-        # haven't implemented other 2 criteria
-
         
-
-        if len(best_candidate_permutations_idx) == 1:
-            best_candidate_permutation_idx = best_candidate_permutations_idx[0]
-        else:
-            best_candidate_permutation_idx = np.random.default_rng().choice(\
-                best_candidate_permutations_idx)
-
-        permutation = candidate_permutations[best_candidate_permutation_idx]
-        swap_phys = swaps_phys[best_candidate_permutation_idx]
-        swaps.append(swap_phys)
-
-        inv_permutation = perm_util.invert_permutation(permutation)
-        perms.append(permutation)
-
-        unrouted_gates_phys = perm_util.permute_pairs(unrouted_gates, \
-            permutation)
-        nn_gates_phys, unrouted_gates_phys = util.nearest_neighbours(\
-            unrouted_gates_phys, qubit_distances)
-
-        nn_gates, unrouted_gates = \
-            perm_util.permute_pairs(nn_gates_phys, inv_permutation), \
-            perm_util.permute_pairs(unrouted_gates_phys, inv_permutation)
-
-        nn_gates_collection.append(nn_gates)
-
-        if len(swaps) == len(hamiltonian_couplings):
-            nn_gates_collection[-1] = nn_gates_collection[-1] + unrouted_gates
-            unrouted_gates = []
-            routed_all = False
-
-        nn_gates_collection = [\
-            util.standardize_pairs(nn_gates, symmetrize=False) \
-            for nn_gates in nn_gates_collection\
+        logical_distances = qubit_maps[-1].logical_distances
+        ur_gate_distances = [logical_distances[ur_gate[0], ur_gate[1]] for ur_gate in unrouted_gates]
+        shortest_distance = np.min(ur_gate_distances)
+        closest_ur_gates = [ur_gate for j, ur_gate in enumerate(unrouted_gates) if ur_gate_distances[j] == shortest_distance]
+        
+        #closest_ur_gates = [np.random.default_rng().choice(closest_ur_gates)] #hack for checking something
+        
+        candidate_swaps = []
+        for cug in closest_ur_gates:
+            q1 = cug[0]
+            new_candidate_swaps = [(q1, j) for j, x in enumerate(logical_distances[q1]) if x == 1]
+            candidate_swaps += new_candidate_swaps
+            q2 = cug[0]
+            new_candidate_swaps = [(q2, j) for j, x in enumerate(logical_distances[q2]) if x == 1]
+            candidate_swaps += new_candidate_swaps
+        candidate_swaps = standardize_pairs(candidate_swaps)
+        candidate_maps = [qubit_maps[-1].copy().swap(*candidate_swap, physical_indices=False) for candidate_swap in candidate_swaps]
+        candidate_swap_costs = [qap_cost(unrouted_gates, qm) for qm in candidate_maps]
+        lowest_swap_cost = np.min(candidate_swap_costs)
+        best_swaps_idx = [j for j, swap in enumerate(candidate_swaps) if candidate_swap_costs[j] == lowest_swap_cost]
+        
+        closer_all = []
+        for best_swap_idx in best_swaps_idx:
+            closer = [candidate_maps[best_swap_idx].logical_distances[cug[0], cug[1]] < shortest_distance for cug in closest_ur_gates]
+            closer_all.append(np.any(closer))
+        if np.any(closer_all):
+            best_swaps_idx = [best_swap_idx for j, best_swap_idx in enumerate(best_swaps_idx) if closer_all[j]]
+            
+        # other criteria not implemented
+        
+        # for criteria 2, can i just insert the swap that has been NN for the longest?? NOOO
+        
+        # do i need to build up dependency graph??
+        
+        # does criteria 3 do anything that a simple pass later on can't?
+        
+        # for 2, try just selecting swap that is furthest from the previous one:
+        #if (not (len(best_swaps_idx) == 1)) and (not (len(swaps) == 0)):
+        if False: # did not help!
+            logical_distances = qubit_maps[-1].logical_distances
+            previous_swap = swaps[-1]
+            swap_dists = [
+                np.min((
+                logical_distances[candidate_swaps[best_swap_idx][0], previous_swap[0]],
+                logical_distances[candidate_swaps[best_swap_idx][0], previous_swap[1]],
+                logical_distances[candidate_swaps[best_swap_idx][1], previous_swap[0]],
+                logical_distances[candidate_swaps[best_swap_idx][1], previous_swap[1]]
+                )) for best_swap_idx in best_swaps_idx
             ]
+            #tmp = len(best_swaps_idx)
+            best_swaps_idx = [best_swap_idx for j, best_swap_idx in enumerate(best_swaps_idx) if swap_dists[j] == np.max(swap_dists)]
+            #print(tmp, len(best_swaps_idx))
+                          
+        if len(best_swaps_idx) == 1:
+            best_swap_idx = best_swaps_idx[0]
+        else:
+            best_swap_idx = np.random.default_rng().choice(best_swaps_idx)
+        best_swap, best_map = candidate_swaps[best_swap_idx], candidate_maps[best_swap_idx]
+        
+        unrouted_gates_new, nn_gates = [], []
+        logical_coupled = best_map.logical_coupled
+        for ur_gate in unrouted_gates:
+            if ur_gate in logical_coupled:
+                nn_gates.append(ur_gate)
+            else:
+                unrouted_gates_new.append(ur_gate)
+        unrouted_gates = unrouted_gates_new
+        nn_gates_collection.append(nn_gates)
+        swaps.append(best_swap)
+        qubit_maps.append(best_map)
+        
+        if len(swaps) >= len(hamiltonian_interactions):
+            routed_all = False
+            nn_gates_collection[-1] = nn_gates_collection[-1] + unrouted_gates
+            break
+            
+    if routed_all is None:
+        routed_all = True
+    return swaps, nn_gates_collection, qubit_maps, routed_all
 
-    return swaps, perms, nn_gates_collection, routed_all
-
-def route(hamiltonian_couplings, hardware_couplings, initial_permutation, \
-    runs, verbose=False):
-    for run in range(runs):
+def route(hamiltonian_interactions, initial_map, attempts=1, verbose=False):
+    nswaps_best, routed_all_best = float('inf'), False
+    for j in range(attempts):
         if verbose:
-            pc = 100*(run+1)/runs
-            print(f"{pc:.2f}% done", end="\r")
-        swaps_cand, perms_cand, nn_gates_collection_cand, routed_all_cand = \
-            _route(hamiltonian_couplings, hardware_couplings, \
-            initial_permutation)
-        n_swaps_cand = len(swaps_cand)
-        if (run == 0) or (n_swaps_cand < n_swaps):
-            n_swaps = n_swaps_cand
-            swaps = swaps_cand
-            perms = perms_cand
-            nn_gates_collection = nn_gates_collection_cand
-            routed_all = routed_all_cand
-    return swaps, perms, nn_gates_collection, routed_all
+            print(f"Attempt {j+1} of {attempts}.    ", end="\r")
+        swaps, nn_gates_collection, qubit_maps, routed_all = _route(hamiltonian_interactions, initial_map)
+        nswaps = len(swaps)
+        if nswaps < nswaps_best or (routed_all and (not routed_all_best)):
+            nswaps_best = nswaps
+            swaps_best, nn_gates_collection_best, qubit_maps_best, routed_all_best = swaps, nn_gates_collection, qubit_maps, routed_all
+            
+    if verbose:
+        print(f"{nswaps_best} swaps used and {'all gates' if routed_all_best else 'some gates not'} routed.")
+    return swaps_best, nn_gates_collection_best, qubit_maps_best, routed_all_best
 
-def routed_implementation(swaps, perms, nn_gates_collection):
-    n = perms[0].shape[0]
-    instruction = ('map', tuple(perms[0]))
-    sequence = [instruction]
-
-    nn_gates = nn_gates_collection[0]
-    nn_gates_permuted = perm_util.permute_pairs(nn_gates, perms[0])
-    for j, nn_gate in enumerate(nn_gates):
-        nn_gate_permuted = nn_gates_permuted[j]
-        nn_gate_permuted = (min(nn_gate_permuted), max(nn_gate_permuted))
-        instruction = ('hamiltonian_gate', nn_gate, nn_gate_permuted)
-        sequence.append(instruction)
-
-    for j, swap in enumerate(swaps):
-        instruction = ('swap', swap)
-        sequence.append(instruction)
-        nn_gates = nn_gates_collection[j+1]
-        nn_gates_permuted = perm_util.permute_pairs(nn_gates, perms[j+1])
-        for k, nn_gate in enumerate(nn_gates):
-            nn_gate_permuted = nn_gates_permuted[k]
-            nn_gate_permuted = (min(nn_gate_permuted), max(nn_gate_permuted))
-            instruction = ('hamiltonian_gate', nn_gate, nn_gate_permuted)
-            sequence.append(instruction)
-
-    instruction = ('unmap', tuple(perms[-1]))
-    sequence.append(instruction)
-    return sequence
+def route_postprocess(initial_map, swaps, nn_gates_collection, verbose=False):
+    assert len(swaps) == len(nn_gates_collection) - 1
+    sequence = []
+    current_map = initial_map.copy()
+    for j, nn_gates in enumerate(nn_gates_collection):
+        logical_to_physical = current_map.logical_to_physical
+        sequence_new = [("interaction", x, (logical_to_physical[x[0]], logical_to_physical[x[1]])) for x in nn_gates]
+        if not j == len(nn_gates_collection) - 1:
+            swap = swaps[j]
+            sequence_new.append(("swap", swap, (logical_to_physical[swap[0]], logical_to_physical[swap[1]])))
+            current_map.swap(*swap, physical_indices=False)
+        sequence += sequence_new
+    final_map = current_map.copy()
+    
+    connected = 0
+    physical_coupled = initial_map.physical_coupled
+    for el in sequence:
+        if ((el[2][0], el[2][1]) in physical_coupled) or ((el[2][1], el[2][0]) in physical_coupled):
+            connected += 1
+    all_connected = (connected == len(sequence))
+    if verbose:
+        pc = 100*connected/len(sequence)
+        print(f"{pc}% of gates are physically coupled.")
+        
+    logical_to_physical_initial = initial_map.logical_to_physical
+    physical_to_logical_final = final_map.physical_to_logical
+    
+    sequence = [('logical to physical', tuple(logical_to_physical_initial))] + sequence + [('physical to logical', tuple(physical_to_logical_final))]
+        
+    return sequence, final_map, all_connected
