@@ -86,3 +86,25 @@ def invert_permutation(perm):
     tmp = np.empty_like(perm)
     tmp[perm] = np.arange(perm.shape[0])
     return tmp
+
+def permute_state(state, perm):
+    # very slow, there must be a better way?
+    N = state.shape[0]
+    n = int(np.round(np.log2(N)))
+    state_perm = np.zeros_like(state)
+    j_perms = []
+    for j in range(N):
+        jbin = bin(j)[2:]
+        jbin = ('0'*(n-len(jbin)))+jbin
+        jbin = jbin[::-1]
+        jbin = np.array(list([int(x) for x in jbin]))
+        jbin_perm = np.ndarray(len(jbin), dtype=int)
+        for k in range(n):
+            jbin_perm[k] = jbin[perm[k]]
+        jbin_perm = (''.join(list([str(x) for x in jbin_perm])))
+        jbin_perm = jbin_perm[::-1]
+        j_perm = int(jbin_perm, 2)
+        j_perms.append(j_perm)
+    j_perms = np.array(j_perms, dtype=int)
+    state_perm[j_perms] = state[:]
+    return state_perm

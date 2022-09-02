@@ -35,9 +35,11 @@ def circuit_from_hamiltonian_optimized(J_sequence, J, h, c, qaoa_param):
             physical_qubit = q1
         else:
             physical_qubit = logical_to_physical[q1]
-        hval = h[physical_qubit]
+        #hval = h[physical_qubit]
+        hval = h[q1]
         if not (hval == 0.0):
-            qc.rz(2*qaoa_param*hval, q1)
+            #qc.rz(2*qaoa_param*hval, q1) # SHOULD THIS BE PHYSICAL QUBIT???
+            qc.rz(2*qaoa_param*hval, physical_qubit) # SHOULD THIS BE PHYSICAL QUBIT???
 
     physical_to_logical = None
     for i, instruction in enumerate(J_sequence):
