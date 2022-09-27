@@ -3,7 +3,7 @@ import twoqaoan.twoqaoan as twoqaoan
 import twoqaoan.util as util
 import twoqaoan.mapping as mapping
 import twoqaoan.routing as routing
-from qiskit.test.mock import FakeLondon, FakeTokyo
+from qiskit.providers.fake_provider import FakeLondon, FakeTokyo
 from qiskit.quantum_info import Statevector
 
 def test_circuit_from_hamiltonian():
